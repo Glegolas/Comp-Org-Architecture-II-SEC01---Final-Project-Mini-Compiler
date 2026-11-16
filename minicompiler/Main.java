@@ -36,10 +36,14 @@ public class Main {
 	
 	/** MEMBERS *********************************************************/
 	
+	// FILE-RELATED CONSTANTS
+	private static final String ACCEPTED_FILE_EXTENSION = ".txt";
+	
 	// ERROR MESSAGES
 	private static final String ERRORMSG_NO_ARGUMENTS = "No input file path was given.";
 	private static final String ERRORMSG_INVALID_PATH = "The input file's path is invalid.";
-	private static final String ERRORMSG_INPUT_FILE_IS_UNREADABLE = "The input file is unreadable";
+	private static final String ERRORMSG_INVALID_FILETYPE = "The input file is not a valid file type.";
+	private static final String ERRORMSG_INPUT_FILE_IS_UNREADABLE = "The input file is unreadable.";
 	
 	/*******************************************************************/
 	
@@ -67,8 +71,9 @@ public class Main {
 		// ERROR CHECK: Is the file not readable?
 		if (!file.canRead()) { sendErrorMessage(ERRORMSG_INPUT_FILE_IS_UNREADABLE); }
 		
-		// ERROR CHECK: Does the file have a compiler compliant filetype?
-		// (needs to be implemented ; should just be a simple check if the filetype is a .txt)
+		// ERROR CHECK: Does the file have a readable filetype?
+		String filename = file.getName();
+		if (filename.length() < 3 || !filename.endsWith(ACCEPTED_FILE_EXTENSION)) { sendErrorMessage(ERRORMSG_INVALID_FILETYPE); }
 		
 		return file;
 	}
