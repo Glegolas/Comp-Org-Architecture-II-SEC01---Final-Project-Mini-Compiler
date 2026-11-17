@@ -22,6 +22,8 @@
  *  2. Read file and translate it into machine-code that will be representated as a giant string. [-unfinished-] 
  *     
  *      (comment) Liam: Making a giant string could also NOT be the move here, but I'm just putting it here for now.
+ *      (comment) Jared: Identify each type of text by splitting where the spaces are, giving them all a different meaning based on if it is a keyword, identifier, or delimiter. Save their location in the file by line/column
+ * 
  *
  *  3. Turn the string into a .s output file. [-unfinished-]
  *
@@ -81,7 +83,12 @@ public class Main {
 	public static void main(String[] args) {
 		File target = getValidFileFromInputArguments(args);
 
+
 		// START TRANSLATION CODE HERE //
+
+		//Reading file
+
+		//Splitting text by spaces and saving it into an array
 		
 	}
 	
