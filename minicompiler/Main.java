@@ -23,6 +23,8 @@
  *     
  *      (comment) Liam: Making a giant string could also NOT be the move here, but I'm just putting it here for now.
  *      (comment) Jared: Identify each type of text by splitting where the spaces are, giving them all a different meaning based on if it is a keyword, identifier, or delimiter. Save their location in the file by line/column
+ *      (comment) Liam: We could make each token type a seperate class (KeywordToken, IdentifierToken, and DelimiterToken) and store them in a parent class (TokenizedFileContent) to organize.
+ *                      Just trying to think of how each token is going to interact with one another and how location is going to be tracked between them.
  * 
  *
  *  3. Turn the string into a .s output file. [-unfinished-]
@@ -32,10 +34,11 @@
  */
 
 import java.io.*;
-import java.nio.file.*;
+import java.util.Scanner;
+// import java.util.List;
 
 public class Main {
-	
+
 	/** MEMBERS *********************************************************/
 	
 	// FILE-RELATED CONSTANTS
@@ -46,11 +49,73 @@ public class Main {
 	private static final String ERRORMSG_INVALID_PATH = "The input file's path is invalid.";
 	private static final String ERRORMSG_INVALID_FILETYPE = "The input file is not a valid file type.";
 	private static final String ERRORMSG_INPUT_FILE_IS_UNREADABLE = "The input file is unreadable.";
-	
+	private static final String ERRORMSG_FAILED_TO_TOKENIZE_FILE = "The input file cannot be tokenized.";
+
+	/** CLASSES ********************************************************/
+
+	// Still unsure if i even want to use classes like this but ill add them here for now.
+	// 
+	private class Token {
+		int location;
+		Token parent; // Possible parent-child implementation for certain tokens like variable declarations, function delimiters, if-else-statements, etc?
+
+		public Token() { }
+		public Token(int l) { location = l; }
+		public Token(int l, Token p) { location = l; parent = p; }
+
+		// TODO: Finish this class.
+	}
+
+	private class KeywordToken extends Token {
+		
+	}
+
+	private class DelimiterToken extends Token {
+
+	}
+
+	private class IdentifierToken extends Token {
+
+	}
+
+	// Contains the tokenized content from a file (unsure if I want to do it this way.)
+	private class TokenizedFileContent {
+		// public List<List<KeywordToken>> keywords;
+		// public List<List<DelimiterToken>> delimiters;
+		// public List<List<IdentifierToken>> identifiers;
+	}
+
 	/*******************************************************************/
 	
 	/** METHODS ********************************************************/
-	
+
+	// Reads through a file, splits each line into fragments, and generates tokens based off them.  
+	private TokenizedFileContent tokenizeFileContent(File file) {
+
+		TokenizedFileContent tokenized = new TokenizedFileContent(); // Resulting content
+
+		try (Scanner reader = new Scanner(file)) {
+			for (int lineNumber = 0; reader.hasNextLine(); ++lineNumber) {
+
+				// reader.nextLine() -> returns String representing line in file -> call '.split' with a regex pattern for whitespace onto string -> returns String[]
+				String[] fragments = reader.nextLine().split("\\s");
+
+				// Iterate through each fragment of the line.
+				for (int frag = 0; frag<fragments.length; ++frag) {
+					// TODO: Finish body
+				}
+
+
+			}
+
+		} catch (FileNotFoundException e) { 
+			sendErrorMessage(ERRORMSG_FAILED_TO_TOKENIZE_FILE);
+		}
+
+		return tokenized;
+
+	}
+
 	// Sends a passed error message and immediately exits the JVM.
 	private static void sendErrorMessage(String msg) { System.err.println(msg); System.exit(-1); }
 	
