@@ -43,6 +43,9 @@ public class Main {
 
 	/** MEMBERS *********************************************************/
 	
+	//Memory allocation 
+	private static int nextOffset = 0;
+
 	// FILE-RELATED CONSTANTS
 	private static final String ACCEPTED_FILE_EXTENSION = ".txt";
 	
@@ -107,6 +110,24 @@ public class Main {
 
 	// Still unsure if i even want to use classes like this but ill add them here for now.
 	// 
+
+	//Allocating memory space for data types
+	private static void allocate(Identifier id) {
+		nextOffset += 4;
+		id.offset = nextOffset;       
+	}
+
+
+	private static String valueOf(Token t) {
+    	if (t instanceof IntLiteral) {
+        	IntLiteral lit = (IntLiteral) t;
+        	return String.valueOf(lit.value);
+    	}
+
+    	Identifier id = (Identifier) t;
+    	return "DWORD PTR [rbp-" + id.offset + "]";
+	}
+	
 
 	// INTERFACES
 	private static interface SyntaxConsumer {
@@ -184,6 +205,7 @@ public class Main {
 	}
 
 	private static class Identifier extends Token implements SyntaxConsumer {
+		public int offset;   
 		public Keyword initializer;
 		public Literal value;
 		public int refCount = 0;
@@ -256,6 +278,8 @@ public class Main {
 		public IntLiteral(String fragment, int lineNumber, int linePos, int value) { super(fragment, lineNumber, linePos); this.value = value; }
 	}
 
+	
+
 
 
 	/*******************************************************************/
@@ -302,6 +326,88 @@ public class Main {
 	//
 	//    2. Compress groups of tokens into expression tokens that can either stay as is or be optimially converted to literals (depending if the statement contains variables).
 	//
+	private static void emitExpression(ArrayList<Token> expr, StringBuilder asm) {
+    // expr looks like: [5] [+] [6] [-] [x] ...
+	// move first value into eax
+    asm.append("    mov eax, ").append(valueOf(expr.get(0))).append("\n");
+
+	//Loops through entire expression size going two at a time (for expression and value)
+    for (int i = 1; i < expr.size(); i += 2) {
+        Operator op = (Operator) expr.get(i); // Can be + - or *
+        String right = valueOf(expr.get(i + 1)); // Value to the right of expression
+
+		//Uses appropriate operator expression for what the operator is
+        switch (op.opType) {
+            case ADD:
+                asm.append("    add eax, ").append(right).append("\n");
+                break;
+            case SUB:
+                asm.append("    sub eax, ").append(right).append("\n");
+                break;
+            case MUL:
+                asm.append("    imul eax, ").append(right).append("\n");
+                break;
+            default:
+                sendUniqueTokenErrorMessage(op);
+                break;
+        }
+    }
+}
+
+	private static void emitDeclaration(Identifier id, ArrayList<Token> expr, StringBuilder asm) {
+		emitExpression(expr, asm);
+		//Assigns value to the new eax after performing required operations
+		asm.append("    mov DWORD PTR [rbp-").append(id.offset).append("], eax\n");
+	}
+
+	private static void iterateLines(ArrayList<ArrayList<Token>> tokens, StringBuilder asm){
+
+		for (int i = 0; i < tokens.size(); i++) {
+    		ArrayList<Token> line = tokens.get(i);
+			Token first = line.get(0);
+
+			if (first instanceof Keyword) {
+				Identifier id = (Identifier) line.get(1);
+				allocate(id);
+
+				// Only emit code if there's an "= expression ;" part
+				if (line.size() > 3) {
+					//Creates a sub array with everything after equals sign
+					ArrayList<Token> expr = new ArrayList<>(line.subList(3, line.size() - 1));
+					emitDeclaration(id, expr, asm);
+				}
+			}
+			// If the line doesnt start with a keyword but does start with an
+			 else if (first instanceof Identifier) {
+				Identifier id = (Identifier) first;
+				
+				ArrayList<Token> expr = new ArrayList<Token>();
+				for (int j = 2; j < line.size() - 1; j++) {
+					expr.add(line.get(j));
+				}
+				emitDeclaration(id, expr, asm);
+			}
+			
+		}
+	}
+	//Writes the finalized assembly to the file path
+	private static void writeAssembly(StringBuilder body, String path) throws IOException {
+    String frame = String.valueOf(((nextOffset + 15) / 16) * 16);
+    String out =
+        ".intel_syntax noprefix\n" +
+        ".globl main\n" +
+        "main:\n" +
+        "    push rbp\n" +
+        "    mov rbp, rsp\n" +
+        "    sub rsp, " + frame + "\n" +   //frame is how much memory is allocated
+        body +
+        "    mov eax, 0\n" +
+        "    leave\n" +
+        "    ret\n";
+
+    java.nio.file.Files.writeString(java.nio.file.Path.of(path), out);
+}
+
 	private static ArrayList<ArrayList<Token>> syntaxAnalysis(ArrayList<ArrayList<Token>> tokens) {
 
 		for (int lineNumber = 0; lineNumber<tokens.size(); ++lineNumber) {
@@ -344,6 +450,15 @@ public class Main {
 
 					Token token = null;
 					switch(fragment) {
+						case "+"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.ADD); break;
+						case "-"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.SUB); break;
+						case "*"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.MUL); break;
+						case "/"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.DIV); break;
+						case "!="  : token = new Operator(fragment, lineNumber, linePos, OperatorType.NEQ); break;
+						case ">"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.GREATER); break;
+						case "<"  : token = new Operator(fragment, lineNumber, linePos, OperatorType.LESSER); break;
+						case ">=" : token = new Operator(fragment, lineNumber, linePos, OperatorType.GRTEQ); break;
+						case "<=" : token = new Operator(fragment, lineNumber, linePos, OperatorType.LESEQ); break;
 						case ";"     : token = new Punctuation(fragment, lineNumber, linePos, PunctuationType.END); break;
 						case "="     : token = new Operator(fragment, lineNumber, linePos, OperatorType.INIT); break;
 						case "=="    : token = new Operator(fragment, lineNumber, linePos, OperatorType.EQ); break;
@@ -415,11 +530,16 @@ public class Main {
 	
 	public static void main(String[] args) {
 		printTokens( // DEBUG PURPOSES ONLY. WILL BE REPLACED WITH SYNTAXANALYSIS WHEN FINISHED.
-			lexicalAnalysis(
-				getValidFileFromInputArguments(args)
-			)
-		);
-
+		lexicalAnalysis(getValidFileFromInputArguments(args)));
+		ArrayList<ArrayList<Token>> tokens = lexicalAnalysis(getValidFileFromInputArguments(args));
+		StringBuilder asm = new StringBuilder();
+		iterateLines(tokens, asm);
+		
+		try {
+        	writeAssembly(asm, "out.s");
+    	} catch (IOException e) {
+        	sendErrorMessage("Could not write the output file.");
+    	}
 
 		// START TRANSLATION CODE HERE //
 
